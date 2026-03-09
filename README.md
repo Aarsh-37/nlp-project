@@ -185,7 +185,7 @@ This system provides **general informational explanations only** and should **no
 
 ## 👨‍💻 Author
 
-Aryan Bokde
+Aryan Bokde,
 Aarsh Vaidya
 
 Software Engineering / NLP Project

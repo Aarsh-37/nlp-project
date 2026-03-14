@@ -14,7 +14,7 @@ load_dotenv()
 
 # --- 1. Configure Gemini API ---
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
+vvvvvvvvvvvvvv
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     print("WARNING: GEMINI_API_KEY not found in environment or .env file.")

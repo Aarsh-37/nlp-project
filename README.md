@@ -50,8 +50,6 @@ The system allows a patient to upload a medical report image and receive a simpl
 * **spaCy**
 * **Scikit-learn**
 * **Transformers (optional)**
-* **Jupyter Notebook**
-
 ---
 
 ## 📦 Libraries Used
@@ -100,13 +98,18 @@ GEMINI_API_KEY=your_actual_api_key_here
 
 5️⃣ **Run the Application**
 
-You have three ways to run this project:
+You have two ways to run this project:
 
 **Option A: Web Interface (Recommended)**
 ```bash
 python -m streamlit run app.py
 ```
 This opens a beautiful frontend in your browser where you can upload your report directly.
+
+**Option B: Standalone Script**
+```bash
+python medical_report_simplifier.py "path/to/your_report.pdf"
+```
 
 ---
 

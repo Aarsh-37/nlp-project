@@ -1,11 +1,14 @@
 import os
 import re
 import argparse
+import time
+import requests
 import torch
 import pytesseract
 from pdf2image import convert_from_path
 from PIL import Image
-from transformers import pipeline, AutoTokenizer, AutoModel
+from transformers import pipeline
+from pdf2image.exceptions import PDFInfoNotInstalledError
 from dotenv import load_dotenv
 import google.generativeai as genai
 
@@ -19,6 +22,8 @@ else:
     pytesseract.pytesseract.tesseract_cmd = "tesseract"
 
 api_key = os.getenv("GEMINI_API_KEY")
+ocr_space_api_key = os.getenv("OCR_SPACE_API_KEY")
+
 if not api_key:
     print("WARNING: GEMINI_API_KEY not found in environment or .env file.")
 else:
@@ -37,23 +42,66 @@ else:
     print("✅ API Key loaded successfully.")
 
 # --- 2. Initialize Models (Done globally so they aren't reloaded every time) ---
-print("Loading BioBERT model and tokenizer...")
-biobert_model_name = "dmis-lab/biobert-v1.1"
-tokenizer = AutoTokenizer.from_pretrained(biobert_model_name)
-biobert_model = AutoModel.from_pretrained(biobert_model_name)
-
 print("Loading NER Pipeline...")
 ner_pipeline = pipeline("ner", model="d4data/biomedical-ner-all", tokenizer="d4data/biomedical-ner-all", aggregation_strategy="simple")
 
 # --- 3. Core Functions ---
+def extract_text_ocr_space(file_path):
+    """Sends file to OCR Space API and parses response."""
+    if not ocr_space_api_key:
+        raise ValueError("OCR_SPACE_API_KEY not set.")
+    
+    payload = {
+        'apikey': ocr_space_api_key,
+        'language': 'eng',
+        'isOverlayRequired': False,
+        'OCREngine': 2 # Engine 2 is often better for numbers/messy text
+    }
+    
+    with open(file_path, 'rb') as f:
+        r = requests.post(
+            'https://api.ocr.space/parse/image',
+            files={file_path: f},
+            data=payload,
+        )
+    
+    result = r.json()
+    
+    if result.get('IsErroredOnProcessing'):
+        error_msg = result.get('ErrorMessage', ['Unknown API error'])[0]
+        raise RuntimeError(f"OCR Space Error: {error_msg}")
+        
+    parsed_text = ""
+    for result_dict in result.get('ParsedResults', []):
+        parsed_text += result_dict.get('ParsedText', '') + "\n"
+        
+    return parsed_text
+
 def extract_text(file_path):
-    """Extracts text from a given PDF or Image file using Tesseract OCR."""
+    """Extracts text, trying OCR Space first, then falling back to Tesseract."""
     print("Extracting text from document...")
+    
+    # 1. Attempt OCR Space if configured
+    if ocr_space_api_key:
+        try:
+            print("Attempting OCR using OCR Space API...")
+            text = extract_text_ocr_space(file_path)
+            if text.strip():
+                print("✅ Successfully used OCR Space API.")
+                return text
+        except Exception as e:
+            print(f"⚠️ OCR Space failed: {e}. Falling back to local Tesseract...")
+            
+    # 2. Fallback to Local Tesseract
+    print("Running local Tesseract OCR...")
     text = ""
     if file_path.lower().endswith('.pdf'):
-        pages = convert_from_path(file_path)
-        for page in pages:
-            text += pytesseract.image_to_string(page) + "\n"
+        try:
+            pages = convert_from_path(file_path)
+            for page in pages:
+                text += pytesseract.image_to_string(page) + "\n"
+        except PDFInfoNotInstalledError:
+            raise RuntimeError("PDF processing requires Poppler. Please install Poppler and add its binary folder to your system PATH (Windows), or use an image instead.")
     elif file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp')):
         image = Image.open(file_path)
         text = pytesseract.image_to_string(image)
@@ -61,26 +109,28 @@ def extract_text(file_path):
         raise ValueError("Unsupported file format. Please provide a PDF or image file (.png, .jpg, .jpeg, etc.).")
     return text
 
-def extract_and_embed_medical_terms(text):
-    """Extracts medical terms using NER and generates their BioBERT embeddings."""
+def extract_medical_terms(text):
+    """Extracts medical terms using NER with text chunking to avoid max length errors."""
     print("Extracting medical terms from text...")
-    entities = ner_pipeline(text)
     
-    # Extract unique terms longer than 2 characters
-    terms = list(set([ent['word'] for ent in entities if len(ent['word']) > 2]))
-    print(f"Found {len(terms)} unique medical terms.")
+    chunk_size = 1500  # Characters (safe sub-token limit for 512 length)
+    chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     
-    term_embeddings = {}
-    print("Generating BioBERT embeddings for terms...")
-    for term in terms:
-        inputs = tokenizer(term, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            outputs = biobert_model(**inputs)
-            # Use the CLS token embedding (first token)
-            embedding = outputs.last_hidden_state[:, 0, :].squeeze().numpy()
-            term_embeddings[term] = embedding
+    terms = set()
+    for i, chunk in enumerate(chunks):
+        if not chunk.strip():
+            continue
+        try:
+            entities = ner_pipeline(chunk)
+            for ent in entities:
+                if len(ent['word']) > 2:
+                    terms.add(ent['word'])
+        except Exception as e:
+            print(f"Warning: NER skipped a chunk due to an error: {e}")
             
-    return terms, term_embeddings
+    terms_list = list(terms)
+    print(f"Found {len(terms_list)} unique medical terms.")
+    return terms_list
 
 def simplify_medical_report(raw_text, medical_terms):
     """Uses the LLM to simplify the raw OCR text and explain key medical terms."""
@@ -105,9 +155,27 @@ Please provide a response with the following sections:
 4. **General Advice**: Provide general, non-diagnostic advice (e.g., "Consult your doctor for a detailed diagnosis", "Stay hydrated", etc.).
 
 IMPORTANT: Maintain a supportive and objective tone. Add a disclaimer that you are an AI assistant and this is not a substitute for professional medical advice.
-"""
+give the output in max 200-300 words"""
     
     print("Sending request to LLM to generate a simplified report...")
+    response = model.generate_content(prompt)
+    return response.text
+
+def get_brief_summary(text):
+    """Generates a very short, easy to understand summary of the report."""
+    if not api_key:
+        return "Error: API key not configured. Cannot call LLM."
+
+    prompt = f"""
+You are a helpful medical assistant. Please provide a very brief, and highly simplified summary (3-4 sentences maximum) of the following medical report findings.
+Focus only on the most important takeaways and overall health status, tailored for a patient with no medical background:
+
+\"\"\"
+{text}
+\"\"\"
+"""
+    
+    print("Sending request to LLM to generate a brief summary...")
     response = model.generate_content(prompt)
     return response.text
 
@@ -115,16 +183,27 @@ def process_medical_report(file_path):
     """Main pipeline to process a single medical report."""
     print(f"\n--- Processing {file_path} ---")
     try:
-        # 1. OCR
-        raw_text = extract_text(file_path)
-        print("✅ Text successfully extracted.")
+        start_total = time.time()
         
-        # 2. Term Extraction & Embedding
-        terms, embeddings = extract_and_embed_medical_terms(raw_text)
-        print(f"✅ Extracted {len(terms)} medical terms and generated their embeddings.")
+        # 1. OCR
+        start_ocr = time.time()
+        raw_text = extract_text(file_path)
+        ocr_time = time.time() - start_ocr
+        print(f"✅ Text successfully extracted in {ocr_time:.2f}s.")
+        
+        # 2. Term Extraction
+        start_ner = time.time()
+        terms = extract_medical_terms(raw_text)
+        ner_time = time.time() - start_ner
+        print(f"✅ Extracted {len(terms)} medical terms in {ner_time:.2f}s.")
         
         # 3. LLM Simplification
+        start_llm = time.time()
         simplified_output = simplify_medical_report(raw_text, terms)
+        llm_time = time.time() - start_llm
+        print(f"✅ LLM generated report in {llm_time:.2f}s.")
+        
+        total_time = time.time() - start_total
         
         print("\n==================================================")
         print("🩺 SIMPLIFIED MEDICAL REPORT")
@@ -132,6 +211,7 @@ def process_medical_report(file_path):
         print(simplified_output)
         print("==================================================\n")
         
+
     except Exception as e:
         print(f"An error occurred: {e}")
 

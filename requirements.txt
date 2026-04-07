@@ -6,3 +6,9 @@ torch
 python-dotenv
 google-generativeai
 streamlit
+jiwer
+scikit-learn
+rouge-score
+bert-score
+textstat
+requests

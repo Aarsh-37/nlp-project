@@ -1,3 +1,5 @@
+# Import Libraries
+
 import os
 import re
 import argparse
@@ -15,7 +17,7 @@ import google.generativeai as genai
 # Load environment variables
 load_dotenv()
 
-# --- 1. Configure Gemini API ---
+# --- 1. Configure Gemini API  and OCR SPACE API KEY ---
 if os.name == "nt":  # Windows (your local machine)
     pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 else:
@@ -41,9 +43,13 @@ else:
     )
     print("✅ API Key loaded successfully.")
 
+
 # --- 2. Initialize Models (Done globally so they aren't reloaded every time) ---
+
+# Biobert model for extracting medical entities 
 print("Loading NER Pipeline...")
 ner_pipeline = pipeline("ner", model="d4data/biomedical-ner-all", tokenizer="d4data/biomedical-ner-all", aggregation_strategy="simple")
+
 
 # --- 3. Core Functions ---
 def extract_text_ocr_space(file_path):

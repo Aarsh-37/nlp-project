@@ -81,7 +81,7 @@ if uploaded_file is not None:
                 st.success(f"Analysis Complete in {total_time:.2f} seconds!")
                 st.markdown("---")
                 
-                tab1, tab2= st.tabs(["📝 Brief Summary", "🧾 Detailed Simplified Report"])
+                tab1, tab2 ,tab3= st.tabs(["📝 Brief Summary", "🧾 Detailed Simplified Report","⏱️ Pipeline Performance"])
                 
                 with tab1:
                     st.subheader("📝 Brief Summary")
@@ -91,18 +91,18 @@ if uploaded_file is not None:
                     st.subheader("🧾 Detailed Simplified Report")
                     st.markdown(simplified_output)
                     
-                # with tab3:
-                #     st.subheader("⏱️ Pipeline Performance")
-                #     col1, col2 = st.columns(2)
-                #     col1.metric("1. OCR Processing", f"{ocr_time:.2f}s")
-                #     col2.metric("2. NER Extraction", f"{ner_time:.2f}s")
+                with tab3:
+                    st.subheader("⏱️ Pipeline Performance")
+                    col1, col2 = st.columns(2)
+                    col1.metric("1. OCR Processing", f"{ocr_time:.2f}s")
+                    col2.metric("2. NER Extraction", f"{ner_time:.2f}s")
                     
-                #     col3, col4 = st.columns(2)
-                #     col3.metric("3. LLM Detailed Report", f"{llm_time:.2f}s")
-                #     col4.metric("4. LLM Brief Summary", f"{summary_time:.2f}s")
+                    col3, col4 = st.columns(2)
+                    col3.metric("3. LLM Detailed Report", f"{llm_time:.2f}s")
+                    col4.metric("4. LLM Brief Summary", f"{summary_time:.2f}s")
                     
-                #     st.divider()
-                #     st.metric("Total Execution Time", f"{total_time:.2f}s", help="Includes all processing steps.")
+                    st.divider()
+                    st.metric("Total Execution Time", f"{total_time:.2f}s", help="Includes all processing steps.")
                 
                 with st.expander("View Raw Extracted Text (For Reference)"):
                     st.text(raw_text)

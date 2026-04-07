@@ -1,4 +1,4 @@
-# 📊 Evaluation Results — Medical Report Simplifier
+# Evaluation Results — Medical Report Simplifier
 
 This document outlines the pipeline's performance across its three core stages using a reproducible baseline dataset.
 
@@ -42,7 +42,7 @@ Uses contextual embeddings (`roberta-large`) to evaluate semantic equivalence re
 
 | Metric | Score | Note |
 |---|---|---|
-| **BERTScore F1** | **0.9758** | ⭐ Excellent (semantic near-match) |
+| **BERTScore F1** | **0.9758** |  Excellent (semantic near-match) |
 
 ---
 *The above evaluation confirms the LLM (Gemini) strongly preserves the semantic intention of the report (BERTScore ~0.98), even when abstractively summarizing the raw clinical data.*

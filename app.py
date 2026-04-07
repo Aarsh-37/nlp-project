@@ -77,7 +77,7 @@ if uploaded_file is not None:
     st.info("File uploaded successfully. Click the button below to analyze it.")
     
     if st.button("Analyze & Simplify Report"):
-        with st.spinner("Processing your report... This may take a minute."):
+        with st.status("Initializing processing pipeline...", expanded=True) as status:
             try:
                 # Save the uploaded file temporarily so our existing functions can process it via file_path
                 with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
@@ -87,33 +87,36 @@ if uploaded_file is not None:
                 start_total = time.time()
                 
                 # Step 1: OCR
-                st.text("📝 Extracting text via OCR...")
+                status.update(label="📝 Extracting text via OCR...", state="running")
                 start_ocr = time.time()
                 raw_text = extract_text(tmp_file_path)
                 ocr_time = time.time() - start_ocr
                 
                 if not raw_text or len(raw_text.strip()) < 10:
+                    status.update(label="Failed to read text.", state="error")
                     st.warning("⚠️ Could not extract enough readable text from this file. Please ensure the image/PDF is clear and contains text.")
                     os.remove(tmp_file_path)
                     st.stop()
                     
                 # Step 2: Extract Terms
-                st.text("🧬 Finding medical terminology...")
+                status.update(label="🧬 Finding medical terminology (This may take 15-30s on CPU)...", state="running")
                 start_ner = time.time()
                 terms = extract_medical_terms(raw_text)
                 ner_time = time.time() - start_ner
                 
                 # Step 3: LLM Simplification
-                st.text("Generating simplified explanation...")
+                status.update(label="🤖 Generating simplified explanation via AI...", state="running")
                 start_llm = time.time()
                 simplified_output = simplify_medical_report(raw_text, terms)
                 llm_time = time.time() - start_llm
                 
                 # Step 4: Brief Summary
-                st.text("Generating brief summary...")
+                status.update(label="🤖 Generating brief summary...", state="running")
                 start_summary = time.time()
                 brief_summary = get_brief_summary(simplified_output)
                 summary_time = time.time() - start_summary
+                
+                status.update(label="✅ Analysis Complete!", state="complete", expanded=False)
                 
                 total_time = time.time() - start_total
                 

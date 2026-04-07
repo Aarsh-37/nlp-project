@@ -1,5 +1,4 @@
 # Import Libraries
-
 import os
 import re
 import argparse
@@ -119,7 +118,9 @@ def extract_medical_terms(text):
     """Extracts medical terms using NER with text chunking to avoid max length errors."""
     print("Extracting medical terms from text...")
     
-    chunk_size = 1500  # Characters (safe sub-token limit for 512 length)
+
+    # Characters (safe sub-token limit for 512 length)
+    chunk_size = 1500  
     chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     
     terms = set()

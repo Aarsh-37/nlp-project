@@ -1,4 +1,3 @@
-# Import Libraries
 import os
 import re
 import argparse
@@ -12,6 +11,7 @@ from transformers import pipeline
 from pdf2image.exceptions import PDFInfoNotInstalledError
 from dotenv import load_dotenv
 import google.generativeai as genai
+import streamlit as st
 
 # Load environment variables
 load_dotenv()
@@ -43,11 +43,13 @@ else:
     print("✅ API Key loaded successfully.")
 
 
-# --- 2. Initialize Models (Done globally so they aren't reloaded every time) ---
+# --- 2. Initialize Models ---
 
-# Biobert model for extracting medical entities 
-print("Loading NER Pipeline...")
-ner_pipeline = pipeline("ner", model="d4data/biomedical-ner-all", tokenizer="d4data/biomedical-ner-all", aggregation_strategy="simple")
+@st.cache_resource(show_spinner="Loading Medical AI Model into RAM (this only happens once)...")
+def get_ner_pipeline():
+    """Loads and caches the heavy NER model so it isn't reloaded on every Streamlit run."""
+    print("Loading NER Pipeline...")
+    return pipeline("ner", model="d4data/biomedical-ner-all", tokenizer="d4data/biomedical-ner-all", aggregation_strategy="simple")
 
 
 # --- 3. Core Functions ---
@@ -122,6 +124,9 @@ def extract_medical_terms(text):
     # Characters (safe sub-token limit for 512 length)
     chunk_size = 1500  
     chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+    
+    # Grab our cached model!
+    ner_pipeline = get_ner_pipeline()
     
     terms = set()
     for i, chunk in enumerate(chunks):

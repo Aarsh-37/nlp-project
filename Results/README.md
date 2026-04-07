@@ -13,15 +13,15 @@ This document outlines the pipeline's performance across its three core stages u
 ---
 
 ## 2. Medical Term Detection (NER)
-> **Goal:** Identify biomedical entities (`d4data/biomedical-ner-all`). Measured via strict set-based matching.
+> **Goal:** Identify biomedical entities (`d4data/biomedical-ner-all`). Evaluated using ground-truth terms referenced from the project's `medical_dict.json`.
 
 | Metric | Score | Note |
 |---|---|---|
-| **Precision** | **0.2500** | ↑ Higher is better |
-| **Recall** | **0.3333** | ↑ Higher is better |
-| **F1-Score** | **0.2857** | ↑ Higher is better |
+| **Precision** | **0.4545** | ↑ Higher is better |
+| **Recall** | **0.5556** | ↑ Higher is better |
+| **F1-Score** | **0.5000** | ↑ Higher is better |
 
-*Note: These low scores reflect the deliberately noisy OCR inputs used in the evaluation dataset. Upstream OCR errors directly degrade downstream NER performance.*
+*Note: These scores reflect evaluation on clean text using reference terms explicitly found in the `medical_dict.json` (e.g., "hypertension", "tachycardia", "diabetes mellitus"). The model captures the majority of clinical entities but sometimes extracts partial words (like "##cardia") or extra descriptive words, reducing strict exact-match scores despite correctly identifying the clinical concept.*
 
 ---
 

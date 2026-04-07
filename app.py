@@ -110,6 +110,12 @@ if uploaded_file is not None:
                 simplified_output = simplify_medical_report(raw_text, terms)
                 llm_time = time.time() - start_llm
                 
+                if "ERROR: NOT_A_MEDICAL_REPORT" in simplified_output:
+                    status.update(label="Validation Failed", state="error")
+                    st.error("❌ The uploaded document does not appear to be a valid medical report. Please upload a medical report or laboratory results.")
+                    os.remove(tmp_file_path)
+                    st.stop()
+                
                 # Step 4: Brief Summary
                 status.update(label="🤖 Generating brief summary...", state="running")
                 start_summary = time.time()

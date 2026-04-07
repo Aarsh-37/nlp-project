@@ -152,7 +152,10 @@ def simplify_medical_report(raw_text, medical_terms):
     prompt = f"""
 You are a helpful, empathetic medical assistant. Your job is to simplify a medical report for a patient who has no medical background.
 
-Here is the raw text extracted from the patient's medical report:
+First, determine if the provided text is actually a medical report, clinical note, or laboratory results document. If the text does NOT appear to be a medical document (e.g., if it's a recipe, receipt, random article, or non-medical text), you MUST immediately abort and return EXACTLY the following error string, and nothing else:
+ERROR: NOT_A_MEDICAL_REPORT
+
+If it IS a valid medical document, here is the raw text extracted from it:
 \"\"\"
 {raw_text}
 \"\"\"
@@ -160,7 +163,7 @@ Here is the raw text extracted from the patient's medical report:
 Key medical terms we identified in the report:
 {', '.join(medical_terms) if medical_terms else 'None specifically identified'}
 
-Please provide a response with the following sections:
+If it is a medical report, please provide a response with the following sections:
 1. **Summary**: A brief, easy-to-understand summary of the report.
 2. **Key Findings (What are the problems?)**: Explain the abnormal results or main findings in simple terms. Avoid complex jargon.
 3. **Explanation of Medical Terms**: Briefly define the key medical terms found in the report. (Use the list above to guide you, but prioritize terms that are crucial for understanding the report).
@@ -215,6 +218,10 @@ def process_medical_report(file_path):
         llm_time = time.time() - start_llm
         print(f"✅ LLM generated report in {llm_time:.2f}s.")
         
+        if "ERROR: NOT_A_MEDICAL_REPORT" in simplified_output:
+            print("\n❌ ERROR: The provided document does not appear to be a medical report.")
+            return
+
         total_time = time.time() - start_total
         
         print("\n==================================================")

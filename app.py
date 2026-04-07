@@ -1,8 +1,10 @@
 import os
 import tempfile
 import time
+import re
 import streamlit as st
 from PIL import Image
+from fpdf import FPDF
 
 # Import the logic from our script
 # Note: we are importing functions, not running the CLI block
@@ -14,6 +16,47 @@ st.set_page_config(
     page_icon="🩺",
     layout="centered"
 )
+
+def create_pdf(summary, detailed_report):
+    """Generates a PDF byte string from the simplified report text."""
+    # FPDF only natively supports latin-1. Emojis and smart quotes cause crashes.
+    # So we strip out non-ascii characters for the PDF locally.
+    clean_summary = re.sub(r'[^\x00-\x7F]+', ' ', summary)
+    clean_report = re.sub(r'[^\x00-\x7F]+', ' ', detailed_report)
+    
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Title
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, txt="Simplified Medical Report", ln=True, align="C")
+    pdf.ln(10)
+    
+    # Brief Summary Section
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, txt="Brief Summary:", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(0, 8, txt=clean_summary)
+    pdf.ln(10)
+    
+    # Detailed Report Section
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, txt="Detailed Report:", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(0, 8, txt=clean_report)
+    pdf.ln(10)
+    
+    pdf.set_font("Arial", 'I', 10)
+    pdf.cell(0, 10, txt="Disclaimer: This report was simplified by AI and is not valid medical advice.", ln=True)
+    
+    # Save to a temp string and return bytes
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        pdf.output(tmp.name)
+        with open(tmp.name, "rb") as f:
+            pdf_bytes = f.read()
+    os.remove(tmp.name)
+    
+    return pdf_bytes
 
 st.title("🩺 Medical Report Simplifier")
 st.markdown("""
@@ -106,6 +149,17 @@ if uploaded_file is not None:
                 
                 with st.expander("View Raw Extracted Text (For Reference)"):
                     st.text(raw_text)
+                    
+                st.markdown("---")
+                # Generate and present the PDF download button
+                pdf_bytes = create_pdf(brief_summary, simplified_output)
+                st.download_button(
+                    label="📄 Download Report as PDF",
+                    data=pdf_bytes,
+                    file_name="simplified_medical_report.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
                     
             except Exception as e:
                 st.error(f"An error occurred during processing: {e}")

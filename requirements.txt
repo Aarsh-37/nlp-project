@@ -12,3 +12,4 @@ rouge-score
 bert-score
 textstat
 requests
+fpdf

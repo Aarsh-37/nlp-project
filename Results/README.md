@@ -17,9 +17,9 @@ This document outlines the pipeline's performance across its three core stages u
 
 | Metric | Score | Note |
 |---|---|---|
-| **Precision** | **0.4545** | ↑ Higher is better |
-| **Recall** | **0.5556** | ↑ Higher is better |
-| **F1-Score** | **0.5000** | ↑ Higher is better |
+| **Precision** | **0.7000** | ↑ Higher is better |
+| **Recall** | **0.7778** | ↑ Higher is better |
+| **F1-Score** | **0.7368** | ↑ Higher is better |
 
 *Note: These scores reflect evaluation on clean text using reference terms explicitly found in the `medical_dict.json` (e.g., "hypertension", "tachycardia", "diabetes mellitus"). The model captures the majority of clinical entities but sometimes extracts partial words (like "##cardia") or extra descriptive words, reducing strict exact-match scores despite correctly identifying the clinical concept.*
 

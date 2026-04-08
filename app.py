@@ -77,6 +77,15 @@ with left_col:
     analyze_clicked = False
     if uploaded_file is not None:
         st.info("File uploaded successfully.")
+        
+        st.markdown("### 2. Choose AI Engine")
+        llm_choice = st.radio(
+            "Select which AI model handles the simplification:",
+            ["Gemini 2.5 Flash", "Grok (xAI)", "DeepSeek API"],
+            index=0,
+            horizontal=True
+        )
+        
         analyze_clicked = st.button("Analyze & Simplify Report", type="primary", use_container_width=True)
         
         # Display the uploaded image below the button
@@ -118,10 +127,10 @@ with right_col:
                 ner_time = time.time() - start_ner
                 
                 # Step 3: LLM Simplification
-                status.update(label="🤖 Generating summary & detailed explanation via AI...", state="running")
+                status.update(label=f"🤖 Generating summary & detailed explanation via {llm_choice}...", state="running")
                 start_llm = time.time()
                 
-                llm_results = simplify_medical_report(raw_text, terms)
+                llm_results = simplify_medical_report(raw_text, terms, llm_choice)
                 brief_summary = llm_results.get("brief_summary", "Error extracting summary.")
                 simplified_output = llm_results.get("detailed_report", "Error extracting detailed report.")
                 

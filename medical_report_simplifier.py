@@ -12,36 +12,41 @@ from transformers import pipeline
 from pdf2image.exceptions import PDFInfoNotInstalledError
 from dotenv import load_dotenv
 import google.generativeai as genai
+from openai import OpenAI
 import streamlit as st
 
 # Load environment variables
 load_dotenv()
 
-# --- 1. Configure Gemini API  and OCR SPACE API KEY ---
-if os.name == "nt":  # Windows (your local machine)
+# --- 1. Configure Supported AI LLM APIs and OCR ---
+if os.name == "nt":  # Windows
     pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 else:
     pytesseract.pytesseract.tesseract_cmd = "tesseract"
 
-api_key = os.getenv("GEMINI_API_KEY")
 ocr_space_api_key = os.getenv("OCR_SPACE_API_KEY")
 
-if not api_key:
-    print("WARNING: GEMINI_API_KEY not found in environment or .env file.")
-else:
-    genai.configure(api_key=api_key)
-    generation_config = {
-        "temperature": 0.3,
-        "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 8192,
-        "response_mime_type": "application/json",
-    }
-    model = genai.GenerativeModel(
+# Initialize Gemini
+gemini_model = None
+if os.getenv("GEMINI_API_KEY"):
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    gemini_model = genai.GenerativeModel(
         model_name="gemini-2.5-flash",
-        generation_config=generation_config,
+        generation_config={
+            "temperature": 0.3, "top_p": 0.95, "top_k": 40,
+            "max_output_tokens": 8192, "response_mime_type": "application/json",
+        }
     )
-    print("✅ API Key loaded successfully.")
+
+# Initialize Grok
+grok_client = None
+if os.getenv("GROK_API_KEY"):
+    grok_client = OpenAI(api_key=os.getenv("GROK_API_KEY"), base_url="https://api.x.ai/v1")
+
+# Initialize DeepSeek
+deepseek_client = None
+if os.getenv("DEEPSEEK_API_KEY"):
+    deepseek_client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
 
 
 # --- 2. Initialize Models ---
@@ -152,11 +157,9 @@ def extract_medical_terms(text):
     print(f"Found {len(terms_list)} unique medical terms.")
     return terms_list
 
-def simplify_medical_report(raw_text, medical_terms):
-    """Uses the LLM to generate BOTH the brief summary and detailed explanation in ONE single fast JSON API call."""
-    if not api_key:
-        return {"brief_summary": "API Key missing.", "detailed_report": "Error: API key not configured. Cannot call LLM."}
-
+def simplify_medical_report(raw_text, medical_terms, llm_choice="Gemini 2.5 Flash"):
+    """Uses the requested LLM to generate BOTH the brief summary and detailed explanation in ONE single fast JSON API call."""
+    
     # --- PRIMARY RAG DICTIONARY LOOKUP ---
     # Load our simplified dictionary definitions to feed directly into the AI prompt
     import json
@@ -197,14 +200,48 @@ Please provide a response as a JSON object with EXACTLY the following schema:
 IMPORTANT: Add a disclaimer at the end of the detailed_report that you are an AI assistant and this is not a substitute for professional medical advice.
 """
     
-    print("Sending batched request to LLM to generate both summary and detailed report simultaneously...")
+    print(f"Sending batched request to {llm_choice} LLM to generate both summary and detailed report simultaneously...")
     try:
-        response = model.generate_content(prompt)
         import json
-        result = json.loads(response.text)
-        return result
+        if llm_choice == "Gemini 2.5 Flash":
+            if not gemini_model:
+                raise Exception("GEMINI_API_KEY not found in .env")
+            response = gemini_model.generate_content(prompt)
+            result = json.loads(response.text)
+            return result
+            
+        elif llm_choice == "Grok (xAI)":
+            if not grok_client:
+                raise Exception("GROK_API_KEY not found in .env")
+            response = grok_client.chat.completions.create(
+                model="grok-beta", 
+                messages=[
+                    {"role": "system", "content": "You are a helpful, empathetic medical assistant. Please respond ONLY with the requested JSON object."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3
+            )
+            result = json.loads(response.choices[0].message.content)
+            return result
+            
+        elif llm_choice == "DeepSeek API":
+            if not deepseek_client:
+                raise Exception("DEEPSEEK_API_KEY not found in .env")
+            response = deepseek_client.chat.completions.create(
+                model="deepseek-chat", 
+                messages=[
+                    {"role": "system", "content": "You are a helpful, empathetic medical assistant. Please respond ONLY with the requested JSON object."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3
+            )
+            result = json.loads(response.choices[0].message.content)
+            return result
+            
     except Exception as e:
-        print(f"LLM Processing Failed: {e}")
+        print(f"LLM Processing Failed ({llm_choice}): {e}")
         # --- RULE-BASED FALLBACK SYSTEM ---
         # If the API key is invalid, quota exceeded, or internet drops, we rescue the app here.
         # We perform local RAG by pulling definitions directly from our JSON dictionary!

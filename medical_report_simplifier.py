@@ -4,6 +4,7 @@ import argparse
 import time
 import requests
 import torch
+import json
 import pytesseract
 from pdf2image import convert_from_path
 from PIL import Image
@@ -34,7 +35,7 @@ else:
         "top_p": 0.95,
         "top_k": 40,
         "max_output_tokens": 8192,
-        "response_mime_type": "text/plain",
+        "response_mime_type": "application/json",
     }
     model = genai.GenerativeModel(
         model_name="gemini-2.5-flash",
@@ -129,16 +130,22 @@ def extract_medical_terms(text):
     ner_pipeline = get_ner_pipeline()
     
     terms = set()
-    for i, chunk in enumerate(chunks):
-        if not chunk.strip():
-            continue
+    valid_chunks = [c for c in chunks if c.strip()]
+    
+    if valid_chunks:
         try:
-            entities = ner_pipeline(chunk)
-            for ent in entities:
-                if len(ent['word']) > 2:
-                    terms.add(ent['word'])
+            # Batch process all chunks at once to minimize python overhead
+            batch_entities = ner_pipeline(valid_chunks)
+            # Handle edge case where pipeline returns single list instead of list of lists for 1 item
+            if len(valid_chunks) == 1:
+                batch_entities = [batch_entities]
+                
+            for entities in batch_entities:
+                for ent in entities:
+                    if len(ent['word']) > 2:
+                        terms.add(ent['word'])
         except Exception as e:
-            print(f"Warning: NER skipped a chunk due to an error: {e}")
+            print(f"Warning: NER failed during batch processing: {e}")
             
     terms_list = list(terms)
     print(f"Found {len(terms_list)} unique medical terms.")
@@ -152,10 +159,7 @@ def simplify_medical_report(raw_text, medical_terms):
     prompt = f"""
 You are a helpful, empathetic medical assistant. Your job is to simplify a medical report for a patient who has no medical background.
 
-First, determine if the provided text is actually a medical report, clinical note, or laboratory results document. If the text does NOT appear to be a medical document (e.g., if it's a recipe, receipt, random article, or non-medical text), you MUST immediately abort and return EXACTLY the following error string, and nothing else:
-ERROR: NOT_A_MEDICAL_REPORT
-
-If it IS a valid medical document, here is the raw text extracted from it:
+Here is the raw text extracted from the patient's medical report:
 \"\"\"
 {raw_text}
 \"\"\"
@@ -163,36 +167,27 @@ If it IS a valid medical document, here is the raw text extracted from it:
 Key medical terms we identified in the report:
 {', '.join(medical_terms) if medical_terms else 'None specifically identified'}
 
-If it is a medical report, please provide a response with the following sections:
-1. **Summary**: A brief, easy-to-understand summary of the report.
-2. **Key Findings (What are the problems?)**: Explain the abnormal results or main findings in simple terms. Avoid complex jargon.
-3. **Explanation of Medical Terms**: Briefly define the key medical terms found in the report. (Use the list above to guide you, but prioritize terms that are crucial for understanding the report).
-4. **General Advice**: Provide general, non-diagnostic advice (e.g., "Consult your doctor for a detailed diagnosis", "Stay hydrated", etc.).
+Please provide a response as a JSON object with EXACTLY the following schema:
+{{
+  "brief_summary": "A very brief, and highly simplified summary (3-4 sentences maximum). Focus only on the most important takeaways and overall health status, tailored for a patient with no medical background.",
+  "detailed_report": "A detailed explanation structured naturally with markdown format containing sections like 'Summary', 'Key Findings (What are the problems?)', 'Explanation of Medical Terms', and 'General Advice' (max 200-300 words). Maintain a supportive tone."
+}}
 
-IMPORTANT: Maintain a supportive and objective tone. Add a disclaimer that you are an AI assistant and this is not a substitute for professional medical advice.
-give the output in max 200-300 words"""
-    
-    print("Sending request to LLM to generate a simplified report...")
-    response = model.generate_content(prompt)
-    return response.text
-
-def get_brief_summary(text):
-    """Generates a very short, easy to understand summary of the report."""
-    if not api_key:
-        return "Error: API key not configured. Cannot call LLM."
-
-    prompt = f"""
-You are a helpful medical assistant. Please provide a very brief, and highly simplified summary (3-4 sentences maximum) of the following medical report findings.
-Focus only on the most important takeaways and overall health status, tailored for a patient with no medical background:
-
-\"\"\"
-{text}
-\"\"\"
+IMPORTANT: Add a disclaimer at the end of the detailed_report that you are an AI assistant and this is not a substitute for professional medical advice.
 """
     
-    print("Sending request to LLM to generate a brief summary...")
+    print("Sending batched request to LLM to generate both summary and detailed report simultaneously...")
     response = model.generate_content(prompt)
-    return response.text
+    
+    try:
+        result = json.loads(response.text)
+        return result
+    except Exception as e:
+        print(f"Failed to parse JSON response: {e}")
+        return {
+            "brief_summary": "Failed to generate brief summary.",
+            "detailed_report": response.text
+        }
 
 def process_medical_report(file_path):
     """Main pipeline to process a single medical report."""
@@ -214,20 +209,16 @@ def process_medical_report(file_path):
         
         # 3. LLM Simplification
         start_llm = time.time()
-        simplified_output = simplify_medical_report(raw_text, terms)
+        result_dict = simplify_medical_report(raw_text, terms)
         llm_time = time.time() - start_llm
-        print(f"✅ LLM generated report in {llm_time:.2f}s.")
+        print(f"✅ LLM generated summary & report in {llm_time:.2f}s.")
         
-        if "ERROR: NOT_A_MEDICAL_REPORT" in simplified_output:
-            print("\n❌ ERROR: The provided document does not appear to be a medical report.")
-            return
-
         total_time = time.time() - start_total
         
         print("\n==================================================")
         print("🩺 SIMPLIFIED MEDICAL REPORT")
         print("==================================================")
-        print(simplified_output)
+        print(result_dict.get("detailed_report", "Error."))
         print("==================================================\n")
         
 

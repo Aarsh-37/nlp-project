@@ -7,8 +7,7 @@ from PIL import Image
 from fpdf import FPDF
 
 # Import the logic from our script
-# Note: we are importing functions, not running the CLI block
-from medical_report_simplifier import extract_text, extract_medical_terms, simplify_medical_report, get_brief_summary
+from medical_report_simplifier import extract_text, extract_medical_terms, simplify_medical_report
 
 # Configure Streamlit page
 st.set_page_config(
@@ -106,21 +105,15 @@ if uploaded_file is not None:
                 
                 # Step 3: LLM Simplification
                 status.update(label="🤖 Generating simplified explanation via AI...", state="running")
+                status.update(label="🤖 Generating summary & detailed explanation via AI...", state="running")
                 start_llm = time.time()
-                simplified_output = simplify_medical_report(raw_text, terms)
+                
+                llm_results = simplify_medical_report(raw_text, terms)
+                brief_summary = llm_results.get("brief_summary", "Error extracting summary.")
+                simplified_output = llm_results.get("detailed_report", "Error extracting detailed report.")
+                
                 llm_time = time.time() - start_llm
-                
-                if "ERROR: NOT_A_MEDICAL_REPORT" in simplified_output:
-                    status.update(label="Validation Failed", state="error")
-                    st.error("❌ The uploaded document does not appear to be a valid medical report. Please upload a medical report or laboratory results.")
-                    os.remove(tmp_file_path)
-                    st.stop()
-                
-                # Step 4: Brief Summary
-                status.update(label="🤖 Generating brief summary...", state="running")
-                start_summary = time.time()
-                brief_summary = get_brief_summary(simplified_output)
-                summary_time = time.time() - start_summary
+                summary_time = 0.0 # Summary is now generated simultaneously with the detailed report
                 
                 status.update(label="✅ Analysis Complete!", state="complete", expanded=False)
                 

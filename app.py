@@ -81,7 +81,7 @@ with left_col:
         st.markdown("### 2. Choose AI Engine")
         llm_choice = st.radio(
             "Select which AI model handles the simplification:",
-            ["Gemini 2.5 Flash", "Grok (xAI)", "DeepSeek API"],
+            ["Gemini 2.5 Flash", "Groq (Llama 3)"],
             index=0,
             horizontal=True
         )

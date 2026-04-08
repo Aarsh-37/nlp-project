@@ -38,15 +38,10 @@ if os.getenv("GEMINI_API_KEY"):
         }
     )
 
-# Initialize Grok
-grok_client = None
-if os.getenv("GROK_API_KEY"):
-    grok_client = OpenAI(api_key=os.getenv("GROK_API_KEY"), base_url="https://api.x.ai/v1")
-
-# Initialize DeepSeek
-deepseek_client = None
-if os.getenv("DEEPSEEK_API_KEY"):
-    deepseek_client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
+# Initialize Groq
+groq_client = None
+if os.getenv("GROQ_API_KEY"):
+    groq_client = OpenAI(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1")
 
 
 # --- 2. Initialize Models ---
@@ -210,26 +205,11 @@ IMPORTANT: Add a disclaimer at the end of the detailed_report that you are an AI
             result = json.loads(response.text)
             return result
             
-        elif llm_choice == "Grok (xAI)":
-            if not grok_client:
-                raise Exception("GROK_API_KEY not found in .env")
-            response = grok_client.chat.completions.create(
-                model="grok-beta", 
-                messages=[
-                    {"role": "system", "content": "You are a helpful, empathetic medical assistant. Please respond ONLY with the requested JSON object."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3
-            )
-            result = json.loads(response.choices[0].message.content)
-            return result
-            
-        elif llm_choice == "DeepSeek API":
-            if not deepseek_client:
-                raise Exception("DEEPSEEK_API_KEY not found in .env")
-            response = deepseek_client.chat.completions.create(
-                model="deepseek-chat", 
+        elif llm_choice == "Groq (Llama 3)":
+            if not groq_client:
+                raise Exception("GROQ_API_KEY not found in .env")
+            response = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile", 
                 messages=[
                     {"role": "system", "content": "You are a helpful, empathetic medical assistant. Please respond ONLY with the requested JSON object."},
                     {"role": "user", "content": prompt}

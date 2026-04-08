@@ -187,12 +187,26 @@ IMPORTANT: Add a disclaimer at the end of the detailed_report that you are an AI
         print(f"LLM Processing Failed: {e}")
         # --- RULE-BASED FALLBACK SYSTEM ---
         # If the API key is invalid, quota exceeded, or internet drops, we rescue the app here.
-        fallback_summary = "⚠️ The AI Simplifier is currently unavailable (Network/API Error). Below is the raw data extracted directly from your document."
+        # We perform local RAG by pulling definitions directly from our JSON dictionary!
+        import json
+        LOCAL_MED_DICT = {}
+        try:
+            with open("data/medical_dict.json", "r", encoding="utf-8") as f:
+                LOCAL_MED_DICT = json.load(f).get("medical_entities", {})
+        except Exception as file_e:
+            print(f"Warning: Could not load local dictionary for fallback: {file_e}")
+
+        fallback_summary = "⚠️ The AI Simplifier is currently unavailable (Network/API Error). Below is the simplified data extracted directly from your document's terminology."
         
-        fallback_report = "## ⚙️ Automated Extraction Results\nOur connection to the AI Simplifier failed, but our local pipeline successfully identified the following medical terminology in your document:\n\n"
+        fallback_report = "## ⚙️ Automated Outline (Offline Mode)\nOur clinical AI connection failed, but our local pipeline successfully identified the following key medical terms in your document:\n\n"
         if medical_terms:
             for term in medical_terms:
-                fallback_report += f"- **{term.title()}**\n"
+                clean_term = term.lower().strip()
+                definition = LOCAL_MED_DICT.get(clean_term)
+                if definition:
+                    fallback_report += f"- **{term.title()}**: {definition}\n"
+                else:
+                    fallback_report += f"- **{term.title()}**\n"
         else:
             fallback_report += "*No specific medical terminology identified.*"
             

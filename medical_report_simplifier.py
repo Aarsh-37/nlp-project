@@ -152,7 +152,7 @@ def extract_medical_terms(text):
     print(f"Found {len(terms_list)} unique medical terms.")
     return terms_list
 
-def simplify_medical_report(raw_text, medical_terms, llm_choice="Gemini 2.5 Flash"):
+def simplify_medical_report(raw_text, medical_terms, llm_choice="LLM 1"):
     """Uses the requested LLM to generate BOTH the brief summary and detailed explanation in ONE single fast JSON API call."""
     
     # --- PRIMARY RAG DICTIONARY LOOKUP ---
@@ -198,14 +198,14 @@ IMPORTANT: Add a disclaimer at the end of the detailed_report that you are an AI
     print(f"Sending batched request to {llm_choice} LLM to generate both summary and detailed report simultaneously...")
     try:
         import json
-        if llm_choice == "Gemini 2.5 Flash":
+        if llm_choice == "LLM 1":
             if not gemini_model:
                 raise Exception("GEMINI_API_KEY not found in .env")
             response = gemini_model.generate_content(prompt)
             result = json.loads(response.text)
             return result
             
-        elif llm_choice == "Groq (Llama 3)":
+        elif llm_choice == "LLM 2":
             if not groq_client:
                 raise Exception("GROQ_API_KEY not found in .env")
             response = groq_client.chat.completions.create(

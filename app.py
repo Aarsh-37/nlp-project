@@ -13,8 +13,30 @@ from medical_report_simplifier import extract_text, extract_medical_terms, simpl
 st.set_page_config(
     page_title="Medical Report Simplifier",
     page_icon="🩺",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
+
+# --- INJECT CUSTOM CSS TO COMPACT THE UI INTO ONE FRAME ---
+st.markdown("""
+<style>
+    /* Reduce the massive top padding pushing everything down */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    /* Shrink the size of headers globally */
+    h1 { font-size: 1.8rem !important; padding-bottom: 0.5rem !important; }
+    h2 { font-size: 1.4rem !important; padding-bottom: 0.5rem !important; }
+    h3 { font-size: 1.2rem !important; padding-bottom: 0.5rem !important; }
+    
+    /* Shrink text and paragraphs globally so they fit inside one frame easily */
+    p, .stMarkdown, .stText, .stInfo, .stMetricValue, .stRadio label {
+        font-size: 0.9rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 def create_pdf(summary, detailed_report):
     """Generates a PDF byte string from the simplified report text."""
@@ -57,12 +79,10 @@ def create_pdf(summary, detailed_report):
     
     return pdf_bytes
 
-st.title("🩺 Medical Report Simplifier")
+st.markdown("## 🩺 Medical Report Simplifier")
 st.markdown("""
-Welcome! Upload your medical report (PDF or Image) below. 
-Our AI will extract the text, identify key medical terms, and provide a simplified, patient-friendly explanation.
-
-*Disclaimer: This is an AI assistant, not a doctor. Always consult a healthcare professional for medical advice.*
+Welcome! Upload your medical report below. Our AI extracts text, identifies key conditions, and provides a simplified explanation.
+*Disclaimer: This is an AI assistant, not a doctor. Consult a healthcare professional.*
 ---
 """)
 
@@ -70,7 +90,7 @@ Our AI will extract the text, identify key medical terms, and provide a simplifi
 left_col, right_col = st.columns([1, 1.5])
 
 with left_col:
-    st.header("📥 1. Upload Document")
+    st.markdown("### 📥 1. Upload Document")
     # File uploader
     uploaded_file = st.file_uploader("Upload your medical report", type=["pdf", "png", "jpg", "jpeg"])
     
@@ -78,10 +98,10 @@ with left_col:
     if uploaded_file is not None:
         st.info("File uploaded successfully.")
         
-        st.markdown("### 2. Choose AI Engine")
+        st.markdown("#### Choose AI Engine")
         llm_choice = st.radio(
             "Select which AI model handles the simplification:",
-            ["Gemini 2.5 Flash", "Groq (Llama 3)"],
+            ["LLM 1", "LLM 2"],
             index=0,
             horizontal=True
         )
@@ -93,7 +113,7 @@ with left_col:
             st.image(uploaded_file, caption="Uploaded Report", width="stretch")
 
 with right_col:
-    st.header("📊 2. Analysis Results")
+    st.markdown("### 📊 2. Analysis Results")
     
     if not uploaded_file:
         st.info("Please upload a medical report on the left to see the AI analysis here.")

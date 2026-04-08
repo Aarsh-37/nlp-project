@@ -136,13 +136,14 @@ def extract_medical_terms(text):
         try:
             # Batch process all chunks at once to minimize python overhead
             batch_entities = ner_pipeline(valid_chunks)
-            # Handle edge case where pipeline returns single list instead of list of lists for 1 item
-            if len(valid_chunks) == 1:
+            
+            # HuggingFace sometimes returns a flat list if only 1 string is passed
+            if len(valid_chunks) == 1 and (len(batch_entities) == 0 or isinstance(batch_entities[0], dict)):
                 batch_entities = [batch_entities]
                 
             for entities in batch_entities:
                 for ent in entities:
-                    if len(ent['word']) > 2:
+                    if isinstance(ent, dict) and len(ent.get('word', '')) > 2:
                         terms.add(ent['word'])
         except Exception as e:
             print(f"Warning: NER failed during batch processing: {e}")
@@ -177,16 +178,29 @@ IMPORTANT: Add a disclaimer at the end of the detailed_report that you are an AI
 """
     
     print("Sending batched request to LLM to generate both summary and detailed report simultaneously...")
-    response = model.generate_content(prompt)
-    
     try:
+        response = model.generate_content(prompt)
+        import json
         result = json.loads(response.text)
         return result
     except Exception as e:
-        print(f"Failed to parse JSON response: {e}")
+        print(f"LLM Processing Failed: {e}")
+        # --- RULE-BASED FALLBACK SYSTEM ---
+        # If the API key is invalid, quota exceeded, or internet drops, we rescue the app here.
+        fallback_summary = "⚠️ The AI Simplifier is currently unavailable (Network/API Error). Below is the raw data extracted directly from your document."
+        
+        fallback_report = "## ⚙️ Automated Extraction Results\nOur connection to the AI Simplifier failed, but our local pipeline successfully identified the following medical terminology in your document:\n\n"
+        if medical_terms:
+            for term in medical_terms:
+                fallback_report += f"- **{term.title()}**\n"
+        else:
+            fallback_report += "*No specific medical terminology identified.*"
+            
+        fallback_report += "\n\n*(Raw OCR text was successfully processed, but detailed AI analysis is offline. Please check your API key or internet connection.)*"
+        
         return {
-            "brief_summary": "Failed to generate brief summary.",
-            "detailed_report": response.text
+            "brief_summary": fallback_summary,
+            "detailed_report": fallback_report
         }
 
 def process_medical_report(file_path):

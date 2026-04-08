@@ -188,6 +188,7 @@ Key medical terms we identified in the report (along with their strict dictionar
 
 Please provide a response as a JSON object with EXACTLY the following schema:
 {{
+  "is_medical_report": true or false, (Evaluate the raw text. If it is definitively NOT a medical report, clinical note, or laboratory result, set to false. Otherwise, set to true),
   "brief_summary": "A very brief, and highly simplified summary (3-4 sentences maximum). Focus only on the most important takeaways and overall health status, tailored for a patient with no medical background.",
   "detailed_report": "A detailed explanation structured naturally with markdown format containing sections like 'Summary', 'Key Findings (What are the problems?)', 'Explanation of Medical Terms' (Crucial: You MUST use the strict 'Simplified Definitions' provided above when explaining these terms), and 'General Advice' (max 200-300 words). Maintain a supportive tone."
 }}

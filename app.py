@@ -150,6 +150,15 @@ with right_col:
                 start_llm = time.time()
                 
                 llm_results = simplify_medical_report(raw_text, terms, llm_choice)
+                
+                # Check validation flag from LLM
+                is_medical = llm_results.get("is_medical_report", True) 
+                if is_medical is False or str(is_medical).lower() == "false":
+                    status.update(label="Validation Failed: Document Rejected", state="error")
+                    st.warning("❌ This does not appear to be a medical report! Please ensure you upload a valid clinical note or laboratory result.")
+                    os.remove(tmp_file_path)
+                    st.stop()
+                
                 brief_summary = llm_results.get("brief_summary", "Error extracting summary.")
                 simplified_output = llm_results.get("detailed_report", "Error extracting detailed report.")
                 

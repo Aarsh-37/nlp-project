@@ -153,9 +153,29 @@ def extract_medical_terms(text):
     return terms_list
 
 def simplify_medical_report(raw_text, medical_terms):
-    """Uses the LLM to simplify the raw OCR text and explain key medical terms."""
+    """Uses the LLM to generate BOTH the brief summary and detailed explanation in ONE single fast JSON API call."""
     if not api_key:
-        return "Error: API key not configured. Cannot call LLM."
+        return {"brief_summary": "API Key missing.", "detailed_report": "Error: API key not configured. Cannot call LLM."}
+
+    # --- PRIMARY RAG DICTIONARY LOOKUP ---
+    # Load our simplified dictionary definitions to feed directly into the AI prompt
+    import json
+    LOCAL_MED_DICT = {}
+    try:
+        with open("data/medical_dict.json", "r", encoding="utf-8") as f:
+            LOCAL_MED_DICT = json.load(f).get("medical_entities", {})
+    except Exception as e:
+        print(f"Warning: Could not load local dictionary for RAG: {e}")
+
+    enriched_terms = []
+    if medical_terms:
+        for term in medical_terms:
+            clean_term = term.lower().strip()
+            definition = LOCAL_MED_DICT.get(clean_term)
+            if definition:
+                enriched_terms.append(f"'{term}' (Simplified Definition: {definition})")
+            else:
+                enriched_terms.append(f"'{term}'")
 
     prompt = f"""
 You are a helpful, empathetic medical assistant. Your job is to simplify a medical report for a patient who has no medical background.
@@ -165,13 +185,13 @@ Here is the raw text extracted from the patient's medical report:
 {raw_text}
 \"\"\"
 
-Key medical terms we identified in the report:
-{', '.join(medical_terms) if medical_terms else 'None specifically identified'}
+Key medical terms we identified in the report (along with their strict dictionary definitions):
+{', '.join(enriched_terms) if enriched_terms else 'None specifically identified'}
 
 Please provide a response as a JSON object with EXACTLY the following schema:
 {{
   "brief_summary": "A very brief, and highly simplified summary (3-4 sentences maximum). Focus only on the most important takeaways and overall health status, tailored for a patient with no medical background.",
-  "detailed_report": "A detailed explanation structured naturally with markdown format containing sections like 'Summary', 'Key Findings (What are the problems?)', 'Explanation of Medical Terms', and 'General Advice' (max 200-300 words). Maintain a supportive tone."
+  "detailed_report": "A detailed explanation structured naturally with markdown format containing sections like 'Summary', 'Key Findings (What are the problems?)', 'Explanation of Medical Terms' (Crucial: You MUST use the strict 'Simplified Definitions' provided above when explaining these terms), and 'General Advice' (max 200-300 words). Maintain a supportive tone."
 }}
 
 IMPORTANT: Add a disclaimer at the end of the detailed_report that you are an AI assistant and this is not a substitute for professional medical advice.

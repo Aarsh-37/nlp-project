@@ -78,7 +78,7 @@ def create_pdf(summary, detailed_report):
     
     return pdf_bytes
 
-st.title("🩺 Medical Report Simplifier")
+st.title("Medical Report Simplifier")
 st.caption("""
 Welcome! Upload your medical report below. Our AI extracts text, identifies key conditions, and provides a simplified explanation.
 *Disclaimer: This is an AI assistant, not a doctor. Consult a healthcare professional.*

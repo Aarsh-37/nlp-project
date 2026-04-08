@@ -78,7 +78,7 @@ with left_col:
     if uploaded_file is not None:
         # Display the uploaded image (if it's an image)
         if uploaded_file.name.lower().endswith(('.png', '.jpg', '.jpeg')):
-            st.image(uploaded_file, caption="Uploaded Report", width=None)  # width=None replaces the deprecated use_container_width
+            st.image(uploaded_file, caption="Uploaded Report", width="stretch")
         
         st.info("File uploaded successfully.")
         analyze_clicked = st.button("Analyze & Simplify Report", type="primary", use_container_width=True)

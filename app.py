@@ -26,8 +26,7 @@ st.markdown("""
         padding-bottom: 1rem !important;
     }
     
-    /* Shrink the size of headers globally */
-    h1 { font-size: 1.8rem !important; padding-bottom: 0.5rem !important; }
+    /* Shrink the size of sub-headers globally */
     h2 { font-size: 1.4rem !important; padding-bottom: 0.5rem !important; }
     h3 { font-size: 1.2rem !important; padding-bottom: 0.5rem !important; }
     
@@ -79,12 +78,12 @@ def create_pdf(summary, detailed_report):
     
     return pdf_bytes
 
-st.markdown("## 🩺 Medical Report Simplifier")
-st.markdown("""
+st.title("🩺 Medical Report Simplifier")
+st.caption("""
 Welcome! Upload your medical report below. Our AI extracts text, identifies key conditions, and provides a simplified explanation.
 *Disclaimer: This is an AI assistant, not a doctor. Consult a healthcare professional.*
----
 """)
+st.markdown("---")
 
 # Create a side-by-side layout
 left_col, right_col = st.columns([1, 1.5])

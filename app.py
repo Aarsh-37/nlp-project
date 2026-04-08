@@ -13,7 +13,7 @@ from medical_report_simplifier import extract_text, extract_medical_terms, simpl
 st.set_page_config(
     page_title="Medical Report Simplifier",
     page_icon="🩺",
-    layout="centered"
+    layout="wide"
 )
 
 def create_pdf(summary, detailed_report):
@@ -63,19 +63,33 @@ Welcome! Upload your medical report (PDF or Image) below.
 Our AI will extract the text, identify key medical terms, and provide a simplified, patient-friendly explanation.
 
 *Disclaimer: This is an AI assistant, not a doctor. Always consult a healthcare professional for medical advice.*
+---
 """)
 
-# File uploader
-uploaded_file = st.file_uploader("Upload your medical report", type=["pdf", "png", "jpg", "jpeg"])
+# Create a side-by-side layout
+left_col, right_col = st.columns([1, 1.5])
 
-if uploaded_file is not None:
-    # Display the uploaded image (if it's an image)
-    if uploaded_file.name.lower().endswith(('.png', '.jpg', '.jpeg')):
-        st.image(uploaded_file, caption="Uploaded Report", use_container_width=True)
+with left_col:
+    st.header("📥 1. Upload Document")
+    # File uploader
+    uploaded_file = st.file_uploader("Upload your medical report", type=["pdf", "png", "jpg", "jpeg"])
     
-    st.info("File uploaded successfully. Click the button below to analyze it.")
+    analyze_clicked = False
+    if uploaded_file is not None:
+        # Display the uploaded image (if it's an image)
+        if uploaded_file.name.lower().endswith(('.png', '.jpg', '.jpeg')):
+            st.image(uploaded_file, caption="Uploaded Report", width=None)  # width=None replaces the deprecated use_container_width
+        
+        st.info("File uploaded successfully.")
+        analyze_clicked = st.button("Analyze & Simplify Report", type="primary", use_container_width=True)
+
+with right_col:
+    st.header("📊 2. Analysis Results")
     
-    if st.button("Analyze & Simplify Report"):
+    if not uploaded_file:
+        st.info("Please upload a medical report on the left to see the AI analysis here.")
+        
+    if uploaded_file is not None and analyze_clicked:
         with st.status("Initializing processing pipeline...", expanded=True) as status:
             try:
                 # Save the uploaded file temporarily so our existing functions can process it via file_path
@@ -104,7 +118,6 @@ if uploaded_file is not None:
                 ner_time = time.time() - start_ner
                 
                 # Step 3: LLM Simplification
-                status.update(label="🤖 Generating simplified explanation via AI...", state="running")
                 status.update(label="🤖 Generating summary & detailed explanation via AI...", state="running")
                 start_llm = time.time()
                 
@@ -138,13 +151,12 @@ if uploaded_file is not None:
                     
                 with tab3:
                     st.subheader("⏱️ Pipeline Performance")
-                    col1, col2 = st.columns(2)
-                    col1.metric("1. OCR Processing", f"{ocr_time:.2f}s")
-                    col2.metric("2. NER Extraction", f"{ner_time:.2f}s")
+                    metric_col1, metric_col2 = st.columns(2)
+                    metric_col1.metric("1. OCR Processing", f"{ocr_time:.2f}s")
+                    metric_col2.metric("2. NER Extraction", f"{ner_time:.2f}s")
                     
-                    col3, col4 = st.columns(2)
-                    col3.metric("3. LLM Detailed Report", f"{llm_time:.2f}s")
-                    col4.metric("4. LLM Brief Summary", f"{summary_time:.2f}s")
+                    metric_col3, metric_col4 = st.columns(2)
+                    metric_col3.metric("3. LLM Processing", f"{llm_time:.2f}s")
                     
                     st.divider()
                     st.metric("Total Execution Time", f"{total_time:.2f}s", help="Includes all processing steps.")
@@ -164,4 +176,5 @@ if uploaded_file is not None:
                 )
                     
             except Exception as e:
+                status.update(label="Analysis Error", state="error")
                 st.error(f"An error occurred during processing: {e}")
